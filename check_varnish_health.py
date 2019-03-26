@@ -69,7 +69,6 @@ class CheckVarnishHealthContext(nag.ScalarContext):
         "http_5XX_pct": "{value}{uom} of all requests returned HTTP 5XX or undef",
         "session_capacity_pct": "Operating at {value}{uom} of maximum session capacity",
         "session_rate_capacity_pct": "Session rate reached {value}{uom}",
-        ""
         "average_response_time": "Average response time at {value}{uom}",
         "total_megabytes_in": "{value}{uom} received in total",
         "total_megabytes_out": "{value}{uom} sent in total",
@@ -128,11 +127,7 @@ def parse_arguments():
                             RANGE is defined as an number or an interval, e.g. 5:25 or :30  or 95:')
     parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishlog',
                         help='path to varnishlog utility')
-    varnish_resource_type = parser.add_mutually_exclusive_group(required=True)
-    varnish_resource_type.add_argument('--backend', action='store', default=None,
-                                  help='name of backend, use --scan to check for resources available')
-    varnish_resource_type.add_argument('--scan', action='store_true', default=False,
-                                  help='Show Varnish resources available (frontend,backend and server)')
+    parser.add_argument('-n', '--varnish-instance-name', action='store', help='hostname by default')
     parser.add_argument('--max', action='store', default=None,
                         help='maximum value for performance data')
     parser.add_argument('--min', action='store', default=None,
@@ -154,11 +149,9 @@ def main():
     check = nag.Check(
         CheckVarnishHealth(
             args.metric,
-            backend=args.backend,
             varnishlog_utility_path=args.varnishlog_utility_path,
             min=args.min,
             max=args.max,
-            scan=args.scan,
             nozerocounters=args.nozerocounters),
         CheckVarnishHealthContext(args.metric, warning=args.warning, critical=args.critical),
         CheckVarnishHealthSummary(backend=args.backend)
