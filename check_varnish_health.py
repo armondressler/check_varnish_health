@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-#https://blog.pandorafms.org/how-to-monitor-varnish-cache/
-#https://www.datadoghq.com/blog/top-varnish-performance-metrics/
-#clientside: sess_conn (cummulative), client_req (cmlt), sess_dropped (cmlt)
-#cache perf:
+# https://blog.pandorafms.org/how-to-monitor-varnish-cache/
+# https://www.datadoghq.com/blog/top-varnish-performance-metrics/
+# clientside: sess_conn (cummulative), client_req (cmlt), sess_dropped (cmlt)
+# cache perf:
 #    alle cmlt: cache_hit, cache_miss, cache_hitpass --> cache hit rate = cache_hit / (cache_hit + cache_miss)
 #    n_expired (object expired due to ttl), n_lru_nuked (nuked because cache is full)
-#thread perf:
+# thread perf:
 #    threads (current), threads_created (cmlt), threads_failed (cmlt, usuccessful creation),
 #    threads_limited (cmlt, failed creation due to set limit), thread_queue_len (curr, number of reqs waiting)
 #    sess_queued (cmlt, num requests queued up)
-#backend per:
+# backend per:
 #    backend_conn (cmlt, successful tcp conn) backend_recycle (cmltl, kept alive connections back in pool)
 #    backend_reuse (cmlt, reused from recycle) backend_toolate (cmlt, closed backend conn for idling)
 #    backend_fail (cmlt, failed handshakes with backend) backend_unhealthy (cmlt, not attempted handshakes because
@@ -21,6 +21,9 @@
 import argparse
 import operator
 import nagiosplugin as nag
+from subprocess import Popen, PIPE
+from json import loads,JSONDecodeError
+import logging
 
 
 __author__ = "Armon Dressler"
@@ -48,37 +51,107 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWIS
 USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
+
 class CheckVarnishHealth(nag.Resource):
-    
+
     def __init__(self,
                  metric,
-                 backend=None,
                  varnishlog_utility_path=None,
+                 varnish_instance_name=None,
                  nozerocounters=False,
                  min=None,
-                 max=None,
-                 scan=False):
-        pass
-        
+                 max=None):
+        self.metric = metric
+        self.varnishlog_utility_path = varnishlog_utility_path
+        self.varnish_instance_name = varnish_instance_name
+        self.min = min
+        self.max = max
+        self.logger = logging.getLogger('nagiosplugin')
+
+    def client_good_request_rate(self):
+        stats = self._fetch_varnishstats(["MAIN.client_req"])
+        return {
+            "value": self._get_percentage(),
+            "name": "thread_capacity_pct",
+            "uom": "%",
+            "min": 0,
+            "max": 100}
+
+    def _get_percentage(self, part, total):
+        try:
+            part = sum(part)
+        except TypeError:
+            pass
+        try:
+            total = sum(total)
+        except TypeError:
+            pass
+        try:
+            ret_val = round(part / total * 100, 2)
+        except ZeroDivisionError:
+            ret_val = 0
+        return ret_val
+
+    def _load_varnishstats_json(self, varnish_output, fieldlist):
+        """
+        returns dict with varnish fields (e.g. MGT.child_died) and their corresponding values
+        :param varnish_output: string, must be valid json
+        :param fieldlist: list of strings of varnish stat fields
+        :return: dict()
+        """
+        try:
+            result_dict = loads(varnish_output)
+        except JSONDecodeError:
+            self.logger.error("Failed to decode json for fields {} from varnish output: {}".format(
+                ", ".join(fieldlist),
+                varnish_output))
+            raise
+        return {field: value["value"] for (field, value) in result_dict.items() if field in fieldlist}
+
+    def _fetch_varnishstats(self, fieldlist):
+        """
+        Grab raw stats from varnish daemon
+        :param fieldlist: list of strings of varnish stat fields
+        :return: dict()
+        """
+        extended_fieldlist = [("-f", field) for field in fieldlist]
+        arglist = [self.varnishlog_utility_path, "-j", "-1"] + [arg for pair in extended_fieldlist for arg in pair]
+        self.logger.debug("Starting varnishstats ({}) with args {}".format(arglist[0], ", ".join(arglist[1:])))
+        process = Popen(arglist, stdout=PIPE)
+        stdout, stderr = process.communicate()
+        exit_status = process.wait(timeout=3)
+        return self._load_varnishstats_json(stdout, fieldlist)
+
+    def probe(self):
+        metric_dict = operator.methodcaller(self.metric)(self)
+        if self.min:
+            metric_dict["min"] = self.min
+        if self.max:
+            metric_dict["max"] = self.max
+        return nag.Metric(metric_dict["name"],
+                          metric_dict["value"],
+                          uom=metric_dict.get("uom"),
+                          min=metric_dict.get("min"),
+                          max=metric_dict.get("max"),
+                          context=metric_dict.get("context"))
 
 
 class CheckVarnishHealthContext(nag.ScalarContext):
     fmt_helper = {
-        "active_servers": "{value}{uom} of all servers available are active",
-        "http_4XX_pct": "{value}{uom} of all requests returned HTTP 4XX",
-        "http_5XX_pct": "{value}{uom} of all requests returned HTTP 5XX or undef",
-        "session_capacity_pct": "Operating at {value}{uom} of maximum session capacity",
-        "session_rate_capacity_pct": "Session rate reached {value}{uom}",
-        "average_response_time": "Average response time at {value}{uom}",
-        "total_megabytes_in": "{value}{uom} received in total",
-        "total_megabytes_out": "{value}{uom} sent in total",
-        "error_requests": "Got {value} bad requests (disconnect,timeout,ACL hit etc.) from clients",
-        "denied_requests": "Discarded {value} requests due to ACL hits (subset of error_requests)",
-        "backend_failures": "Counted {value} errors for this resource",
-        "queue_capacity_pct": "Queue is at {value}{uom} of maximum capacity",
-        "queue_time": "Average time spent in queue is {value}{uom} for the last 1024 requests",
-        "new_sessions": "Counted {value} new sessions during previous second",
-        "new_requests": "Counted {value} requests during previous second"
+        "client_good_request_rate": "{values} client requests, not subject to 4XX response",
+        "client_bad_request_rate": "{value} client requests subject to 4XX response",
+        "cache_hitrate_pct": "{value}{uom} of requests satisfied by cache",
+        "cache_hitforpass_rate": "{value} of requests marked hit for pass",
+        "cached_objects_expired_rate": "{value} objects expired due to ttl",
+        "cached_objects_nuked_rate": "{value} objects nuked from cache due to saturation",
+        "threads_failed_rate": "failed to create {value} threads",
+        "threads_failed_at_limit_rate": "failed to create {value} threads because of configured limit",
+        "session_queue_rate": "{value} sessions waiting for a worker thread",
+        "backend_request_rate": "{value} backend requests sent",
+        "backend_connection_rate": "{value} backend connections",
+        "backend_connection_saturation_rate": "max backend connections reached for {value} time(s)",
+        "backend_unattempted_connections_rate": "{value} connections to backend not attempted due to unhealthy status",
+
     }
 
     def __init__(self, name, warning=None, critical=None,
@@ -134,11 +207,9 @@ def parse_arguments():
                         help='minimum value for performance data')
     parser.add_argument('--metric', action='store', required=False,
                         help='Supported keywords: {}'.format(
-                          ", ".join(CheckVarnishHealthContext.fmt_helper.keys())))
+                            ", ".join(CheckVarnishHealthContext.fmt_helper.keys())))
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='increase output verbosity (use up to 3 times)')
-    parser.add_argument('--nozerocounters', action='store_true', default=False,
-                        help='do not zero out stat counters after every run')
 
     return parser.parse_args()
 
@@ -150,6 +221,7 @@ def main():
         CheckVarnishHealth(
             args.metric,
             varnishlog_utility_path=args.varnishlog_utility_path,
+            varnish_instance_name=args.varnish_instance_name,
             min=args.min,
             max=args.max,
             nozerocounters=args.nozerocounters),
