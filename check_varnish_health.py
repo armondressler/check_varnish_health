@@ -75,22 +75,25 @@ class CheckVarnishHealth(nag.Resource):
         self.logger = logging.getLogger('nagiosplugin')
 
     def client_good_request_rate(self):
-        metric_value_dict = self._fetch_varnishstats(["MAIN.client_req"])
+        current_value = int(self._fetch_varnishstats("MAIN.client_req"))
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "client_good_request_rate",
+            "uom": "c",
+            "min": 0}
+
+    def _get_growth_rate(self, current_value):
         with nag.Cookie(statefile=self.tmpfile) as cookie:
-            historic_value = cookie.get("MAIN.client_req")
+            historic_value = cookie.get(self.metric)
             if historic_value is not None:
-                metric_value = int(metric_value_dict["MAIN.client_req"]) - historic_value
-                cookie["MAIN.client_req"] = metric_value_dict["MAIN.client_req"]
+                metric_value = current_value - historic_value
+                cookie[self.metric] = current_value
                 cookie.commit()
             else:
                 metric_value = 0
-                cookie["MAIN.client_req"] = metric_value_dict["MAIN.client_req"]
+                cookie[self.metric] = current_value
                 cookie.commit()
-        return {
-            "value": metric_value,
-            "name": "client_good_request_rate",
-            "uom": "%",
-            "min": 0}
+        return metric_value
 
     def _get_percentage(self, part, total):
         try:
@@ -154,7 +157,7 @@ class CheckVarnishHealth(nag.Resource):
 
 class CheckVarnishHealthContext(nag.ScalarContext):
     fmt_helper = {
-        "client_good_request_rate": "{values} client requests, not subject to 4XX response",
+        "client_good_request_rate": "{value} client requests, not subject to 4XX response",
         "client_bad_request_rate": "{value} client requests subject to 4XX response",
         "cache_hitrate_pct": "{value}{uom} of requests satisfied by cache",
         "cache_hitforpass_rate": "{value} of requests marked hit for pass",
@@ -191,14 +194,14 @@ class CheckVarnishHealthSummary(nag.Summary):
             info_message = ", ".join([str(result) for result in results.results])
         else:
             info_message = " ".join([str(result) for result in results.results])
-        return "{} \"{}\" reports: {}".format(self.mode.capitalize(), self.varnish_resource, info_message)
+        return "varnish reports: {}".format(info_message)
 
     def problem(self, results):
         if len(results.most_significant) > 1:
             info_message = " ,".join([str(result) for result in results.results])
         else:
             info_message = " ".join([str(result) for result in results.results])
-        return "{} \"{}\" reports: {}".format(self.mode.capitalize(), self.varnish_resource, info_message)
+        return "varnish reports: {}".format(info_message)
 
 
 def parse_arguments():
