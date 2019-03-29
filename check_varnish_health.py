@@ -75,7 +75,7 @@ class CheckVarnishHealth(nag.Resource):
         self.logger = logging.getLogger('nagiosplugin')
 
     def client_good_request_rate(self):
-        current_value = int(self._fetch_varnishstats(["MAIN.client_req"])["MAIN.client_req"])
+        current_value = sum(self._fetch_varnishstats(["MAIN.client_req"]).values())
         return {
             "value": self._get_growth_rate(current_value),
             "name": "client_good_request_rate",
@@ -88,6 +88,104 @@ class CheckVarnishHealth(nag.Resource):
         return {
             "value": self._get_growth_rate(current_value),
             "name": "client_bad_request_rate",
+            "uom": "c",
+            "min": 0}
+
+    def cache_hitrate_pct(self):
+        required_metrics = ["MAIN.cache_hit", "MAIN.cache_miss"]
+        metrics_dict = self._fetch_varnishstats(required_metrics)
+        return {
+            "value": self._get_percentage(metrics_dict["MAIN.cache_hit"],
+                                          metrics_dict["MAIN.cache_hit"] + metrics_dict["MAIN.cache_miss"]),
+            "name": "cache_hitrate_pct",
+            "uom": "%",
+            "min": 0}
+
+    def cache_hitforpass_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.cache_hitpass"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "cache_hitforpass_rate",
+            "uom": "c",
+            "min": 0}
+
+    def cached_objects_expired_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.n_expired"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "cached_objects_expired_rate",
+            "uom": "c",
+            "min": 0}
+
+    def cached_objects_nuked_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.n_lru_nuked"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "cached_objects_nuked_rate",
+            "uom": "c",
+            "min": 0}
+
+    def threads_failed_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.threads_failed"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "threads_failed_rate",
+            "uom": "c",
+            "min": 0}
+
+    def threads_creation_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.threads_created"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "threads_creation_rate",
+            "uom": "c",
+            "min": 0}
+
+    def threads_failed_at_limit_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.threads_limited"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "threads_failed_at_limit_rate",
+            "uom": "c",
+            "min": 0}
+
+    def session_queue_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.thread_queue_len"]).values())
+        return {
+            "value": current_value,
+            "name": "session_queue_rate",
+            "uom": "c",
+            "min": 0}
+
+    def backend_request_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.backend_req"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "backend_request_rate",
+            "uom": "c",
+            "min": 0}
+
+    def backend_connection_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.backend_conn"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "backend_connection_rate",
+            "uom": "c",
+            "min": 0}
+
+    def backend_connection_saturation_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.backend_busy"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "backend_connection_saturation_rate",
+            "uom": "c",
+            "min": 0}
+
+    def backend_unattempted_connections_rate(self):
+        current_value = sum(self._fetch_varnishstats(["MAIN.backend_unhealthy"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "backend_unattempted_connections_rate",
             "uom": "c",
             "min": 0}
 
@@ -172,14 +270,14 @@ class CheckVarnishHealthContext(nag.ScalarContext):
         "cache_hitforpass_rate": "{value} request(s) marked hit for pass",
         "cached_objects_expired_rate": "{value} object(s) expired due to ttl",
         "cached_objects_nuked_rate": "{value} object(s) nuked from cache due to saturation",
+        "threads_creation_rate": "{value} thread(s) created",
         "threads_failed_rate": "failed to create {value} thread(s)",
         "threads_failed_at_limit_rate": "failed to create {value} thread(s) because of configured limit",
         "session_queue_rate": "{value} session(s) waiting for a worker thread",
         "backend_request_rate": "{value} backend request(s) sent",
         "backend_connection_rate": "{value} backend connection(s) initiated",
         "backend_connection_saturation_rate": "max backend connections reached for {value} time(s)",
-        "backend_unattempted_connections_rate": "{value} connection(s) to backend not attempted due to unhealthy status",
-
+        "backend_unattempted_connections_rate": "{value} connection(s) to backend not attempted due to unhealthy status"
     }
 
     def __init__(self, name, warning=None, critical=None,
