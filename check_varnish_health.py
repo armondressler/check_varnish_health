@@ -75,7 +75,7 @@ class CheckVarnishHealth(nag.Resource):
         self.logger = logging.getLogger('nagiosplugin')
 
     def client_good_request_rate(self):
-        current_value = int(self._fetch_varnishstats(["MAIN.client_req"]))
+        current_value = int(self._fetch_varnishstats(["MAIN.client_req"])["MAIN.client_req"])
         return {
             "value": self._get_growth_rate(current_value),
             "name": "client_good_request_rate",
@@ -134,7 +134,7 @@ class CheckVarnishHealth(nag.Resource):
         """
         extended_fieldlist = [("-f", field) for field in fieldlist]
         arglist = [self.varnishlog_utility_path, "-j", "-1"] + [arg for pair in extended_fieldlist for arg in pair]
-        self.logger.debug("Starting varnishstats ({}) with args {}".format(arglist[0], ", ".join(arglist[1:])))
+        self.logger.debug("Starting {} with args {}".format(arglist[0], " ".join(arglist[1:])))
         process = Popen(arglist, stdout=PIPE)
         stdout, stderr = process.communicate()
         stdout_string = stdout.decode()
