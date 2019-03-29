@@ -23,6 +23,7 @@ import operator
 import nagiosplugin as nag
 from subprocess import Popen, PIPE
 from json import loads,JSONDecodeError
+from os.path import join,exists,isdir
 import logging
 
 
@@ -58,24 +59,32 @@ class CheckVarnishHealth(nag.Resource):
                  metric,
                  varnishlog_utility_path=None,
                  varnish_instance_name=None,
-                 nozerocounters=False,
+                 tmpdir=None,
                  min=None,
                  max=None):
         self.metric = metric
         self.varnishlog_utility_path = varnishlog_utility_path
         self.varnish_instance_name = varnish_instance_name
+        self.tmpfile = join(tmpdir, metric)
         self.min = min
         self.max = max
         self.logger = logging.getLogger('nagiosplugin')
 
     def client_good_request_rate(self):
-        stats = self._fetch_varnishstats(["MAIN.client_req"])
+        metric_value_dict = self._fetch_varnishstats(["MAIN.client_req"])
+        with nag.Cookie(statefile=self.tmpfile) as cookie:
+            try:
+                metric_value = int(metric_value_dict["MAIN.client_req"]) - cookie.get("MAIN.client_req")
+            except KeyError:
+                cookie["MAIN.client_req"] = metric_value_dict["MAIN.client_req"]
+                cookie.commit()
+                metric_value = 0
+
         return {
-            "value": self._get_percentage(),
-            "name": "thread_capacity_pct",
+            "value": metric_value,
+            "name": "client_good_request_rate",
             "uom": "%",
-            "min": 0,
-            "max": 100}
+            "min": 0}
 
     def _get_percentage(self, part, total):
         try:
@@ -201,6 +210,8 @@ def parse_arguments():
     parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishlog',
                         help='path to varnishlog utility')
     parser.add_argument('-n', '--varnish-instance-name', action='store', help='hostname by default')
+    parser.add_argument('-t', '--tmpdir', action='store', default='/tmp/check_varnish_health',
+                        help='path to directory to store delta files')
     parser.add_argument('--max', action='store', default=None,
                         help='maximum value for performance data')
     parser.add_argument('--min', action='store', default=None,
@@ -222,9 +233,9 @@ def main():
             args.metric,
             varnishlog_utility_path=args.varnishlog_utility_path,
             varnish_instance_name=args.varnish_instance_name,
+            tmpdir=args.tmpdir,
             min=args.min,
-            max=args.max,
-            nozerocounters=args.nozerocounters),
+            max=args.max),
         CheckVarnishHealthContext(args.metric, warning=args.warning, critical=args.critical),
         CheckVarnishHealthSummary(backend=args.backend)
     )
