@@ -1,23 +1,5 @@
 #!/usr/bin/env python3
 
-# https://blog.pandorafms.org/how-to-monitor-varnish-cache/
-# https://www.datadoghq.com/blog/top-varnish-performance-metrics/
-# clientside: sess_conn (cummulative), client_req (cmlt), sess_dropped (cmlt)
-# cache perf:
-#    alle cmlt: cache_hit, cache_miss, cache_hitpass --> cache hit rate = cache_hit / (cache_hit + cache_miss)
-#    n_expired (object expired due to ttl), n_lru_nuked (nuked because cache is full)
-# thread perf:
-#    threads (current), threads_created (cmlt), threads_failed (cmlt, usuccessful creation),
-#    threads_limited (cmlt, failed creation due to set limit), thread_queue_len (curr, number of reqs waiting)
-#    sess_queued (cmlt, num requests queued up)
-# backend per:
-#    backend_conn (cmlt, successful tcp conn) backend_recycle (cmltl, kept alive connections back in pool)
-#    backend_reuse (cmlt, reused from recycle) backend_toolate (cmlt, closed backend conn for idling)
-#    backend_fail (cmlt, failed handshakes with backend) backend_unhealthy (cmlt, not attempted handshakes because
-#      wasn't marked healthy) backend_busy (cmlt, occurrence max connections reached) backend_req (req to backend)
-#    MAIN.fetch_failed (Fetch failed (all causes), not 1XX, 2XX, 3XX)
-
-
 import argparse
 import operator
 import nagiosplugin as nag
