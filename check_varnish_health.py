@@ -210,6 +210,18 @@ class CheckVarnishHealth(nag.Resource):
             "uom": "c",
             "min": 0}
 
+    def backend_failed_request_rate(self):
+        """
+        rate of requests made to backend that resulted in failure due to any cause (no 1XX,2XX or 3XX reponse)
+        :return: change of metric since last execution and auxiliary information
+        """
+        current_value = sum(self._fetch_varnishstats(["MAIN.backend_req"]).values())
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "backend_failed_request_rate",
+            "uom": "c",
+            "min": 0}
+
     def backend_connection_rate(self):
         """
         rate of connections opened to backend
@@ -352,6 +364,7 @@ class CheckVarnishHealthContext(nag.ScalarContext):
         "threads_failed_at_limit_rate": "failed to create {value} thread(s) because of configured limit",
         "session_queue_rate": "{value} session(s) waiting for a worker thread",
         "backend_request_rate": "{value} backend request(s) sent",
+        "backend_failed_request_rate": "{value} failed backend request(s)",
         "backend_connection_rate": "{value} backend connection(s) initiated",
         "backend_connection_saturation_rate": "max backend connections reached for {value} time(s)",
         "backend_unattempted_connections_rate": "{value} connection(s) to backend not attempted due to unhealthy status"
