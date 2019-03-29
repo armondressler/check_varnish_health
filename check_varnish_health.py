@@ -61,13 +61,13 @@ class CheckVarnishHealth(nag.Resource):
 
     def __init__(self,
                  metric,
-                 varnishlog_utility_path=None,
+                 varnishstat_utility_path=None,
                  varnish_instance_name=None,
                  tmpdir=None,
                  min=None,
                  max=None):
         self.metric = metric
-        self.varnishlog_utility_path = varnishlog_utility_path
+        self.varnishstat_utility_path = varnishstat_utility_path
         self.varnish_instance_name = varnish_instance_name
         self.tmpfile = join(tmpdir, metric)
         self.min = min
@@ -316,7 +316,7 @@ class CheckVarnishHealth(nag.Resource):
         :return: dict()
         """
         extended_fieldlist = [("-f", field) for field in fieldlist]
-        arglist = [self.varnishlog_utility_path, "-j", "-1"]
+        arglist = [self.varnishstat_utility_path, "-j", "-1"]
         if self.varnish_instance_name is not None:
             arglist.extend(["-n",self.varnish_instance_name])
         arglist.extend([arg for pair in extended_fieldlist for arg in pair])
@@ -409,8 +409,8 @@ def parse_arguments():
     parser.add_argument('-c', '--critical', metavar='RANGE', default='',
                         help='return critical if load is outside RANGE,\
                             RANGE is defined as an number or an interval, e.g. 5:25 or :30  or 95:')
-    parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishstat',
-                        help='path to varnishlog utility')
+    parser.add_argument('-u', '--varnishstat-utility-path', action='store', default='/usr/bin/varnishstat',
+                        help='path to varnishstat utility')
     parser.add_argument('-n', '--varnish-instance-name', action='store', help='hostname by default')
     parser.add_argument('-t', '--tmpdir', action='store', default='/tmp/check_varnish_health',
                         help='path to directory to store delta files')
@@ -433,7 +433,7 @@ def main():
     check = nag.Check(
         CheckVarnishHealth(
             args.metric,
-            varnishlog_utility_path=args.varnishlog_utility_path,
+            varnishstat_utility_path=args.varnishstat_utility_path,
             varnish_instance_name=args.varnish_instance_name,
             tmpdir=args.tmpdir,
             min=args.min,
