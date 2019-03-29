@@ -82,6 +82,15 @@ class CheckVarnishHealth(nag.Resource):
             "uom": "c",
             "min": 0}
 
+    def client_bad_request_rate(self):
+        required_metrics = ["MAIN.client_req_400", "MAIN.client_req_411", "MAIN.client_req_413", "MAIN.client_req_417"]
+        current_value = sum([val for val in self._fetch_varnishstats(required_metrics).values()])
+        return {
+            "value": self._get_growth_rate(current_value),
+            "name": "client_bad_request_rate",
+            "uom": "c",
+            "min": 0}
+
     def _get_growth_rate(self, current_value):
         with nag.Cookie(statefile=self.tmpfile) as cookie:
             historic_value = cookie.get(self.metric)
@@ -157,19 +166,19 @@ class CheckVarnishHealth(nag.Resource):
 
 class CheckVarnishHealthContext(nag.ScalarContext):
     fmt_helper = {
-        "client_good_request_rate": "{value} client requests, not subject to 4XX response",
-        "client_bad_request_rate": "{value} client requests subject to 4XX response",
+        "client_good_request_rate": "{value} client request(s) not subject to 4XX response",
+        "client_bad_request_rate": "{value} client request(s) subject to 4XX response",
         "cache_hitrate_pct": "{value}{uom} of requests satisfied by cache",
-        "cache_hitforpass_rate": "{value} of requests marked hit for pass",
-        "cached_objects_expired_rate": "{value} objects expired due to ttl",
-        "cached_objects_nuked_rate": "{value} objects nuked from cache due to saturation",
-        "threads_failed_rate": "failed to create {value} threads",
-        "threads_failed_at_limit_rate": "failed to create {value} threads because of configured limit",
-        "session_queue_rate": "{value} sessions waiting for a worker thread",
-        "backend_request_rate": "{value} backend requests sent",
-        "backend_connection_rate": "{value} backend connections",
+        "cache_hitforpass_rate": "{value} request(s) marked hit for pass",
+        "cached_objects_expired_rate": "{value} object(s) expired due to ttl",
+        "cached_objects_nuked_rate": "{value} object(s) nuked from cache due to saturation",
+        "threads_failed_rate": "failed to create {value} thread(s)",
+        "threads_failed_at_limit_rate": "failed to create {value} thread(s) because of configured limit",
+        "session_queue_rate": "{value} session(s) waiting for a worker thread",
+        "backend_request_rate": "{value} backend request(s) sent",
+        "backend_connection_rate": "{value} backend connection(s) initiated",
         "backend_connection_saturation_rate": "max backend connections reached for {value} time(s)",
-        "backend_unattempted_connections_rate": "{value} connections to backend not attempted due to unhealthy status",
+        "backend_unattempted_connections_rate": "{value} connection(s) to backend not attempted due to unhealthy status",
 
     }
 
