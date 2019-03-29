@@ -75,7 +75,7 @@ class CheckVarnishHealth(nag.Resource):
         self.logger = logging.getLogger('nagiosplugin')
 
     def client_good_request_rate(self):
-        current_value = int(self._fetch_varnishstats("MAIN.client_req"))
+        current_value = int(self._fetch_varnishstats(["MAIN.client_req"]))
         return {
             "value": self._get_growth_rate(current_value),
             "name": "client_good_request_rate",
