@@ -77,13 +77,13 @@ class CheckVarnishHealth(nag.Resource):
     def client_good_request_rate(self):
         metric_value_dict = self._fetch_varnishstats(["MAIN.client_req"])
         with nag.Cookie(statefile=self.tmpfile) as cookie:
-            try:
+            historic_value = cookie.get("MAIN.client_req")
+            if historic_value is not None:
                 metric_value = int(metric_value_dict["MAIN.client_req"]) - cookie.get("MAIN.client_req")
-            except KeyError:
+            else:
                 cookie["MAIN.client_req"] = metric_value_dict["MAIN.client_req"]
                 cookie.commit()
                 metric_value = 0
-
         return {
             "value": metric_value,
             "name": "client_good_request_rate",
@@ -132,8 +132,9 @@ class CheckVarnishHealth(nag.Resource):
         self.logger.debug("Starting varnishstats ({}) with args {}".format(arglist[0], ", ".join(arglist[1:])))
         process = Popen(arglist, stdout=PIPE)
         stdout, stderr = process.communicate()
+        stdout_string = stdout.decode()
         exit_status = process.wait(timeout=3)
-        return self._load_varnishstats_json(stdout, fieldlist)
+        return self._load_varnishstats_json(stdout_string, fieldlist)
 
     def probe(self):
         metric_dict = operator.methodcaller(self.metric)(self)
@@ -183,11 +184,6 @@ class CheckVarnishHealthContext(nag.ScalarContext):
 
 class CheckVarnishHealthSummary(nag.Summary):
 
-    def __init__(self, backend=None):
-        if backend:
-            self.varnish_resource = backend
-            self.mode = "backend"
-
     def ok(self, results):
         if len(results.most_significant) > 1:
             info_message = ", ".join([str(result) for result in results.results])
@@ -211,7 +207,7 @@ def parse_arguments():
     parser.add_argument('-c', '--critical', metavar='RANGE', default='',
                         help='return critical if load is outside RANGE,\
                             RANGE is defined as an number or an interval, e.g. 5:25 or :30  or 95:')
-    parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishlog',
+    parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishstats',
                         help='path to varnishlog utility')
     parser.add_argument('-n', '--varnish-instance-name', action='store', help='hostname by default')
     parser.add_argument('-t', '--tmpdir', action='store', default='/tmp/check_varnish_health',
@@ -220,7 +216,7 @@ def parse_arguments():
                         help='maximum value for performance data')
     parser.add_argument('--min', action='store', default=None,
                         help='minimum value for performance data')
-    parser.add_argument('--metric', action='store', required=False,
+    parser.add_argument('--metric', action='store', required=True,
                         help='Supported keywords: {}'.format(
                             ", ".join(CheckVarnishHealthContext.fmt_helper.keys())))
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -241,7 +237,7 @@ def main():
             min=args.min,
             max=args.max),
         CheckVarnishHealthContext(args.metric, warning=args.warning, critical=args.critical),
-        CheckVarnishHealthSummary(backend=args.backend)
+        CheckVarnishHealthSummary()
     )
     check.main(verbose=args.verbose)
 
