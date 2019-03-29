@@ -22,7 +22,11 @@ import argparse
 import operator
 import nagiosplugin as nag
 from subprocess import Popen, PIPE
-from json import loads,JSONDecodeError
+from json import loads
+try:
+    from json import JSONDecodeError
+except ImportError:
+    JSONDecodeError = ValueError
 from os.path import join,exists,isdir
 import logging
 
