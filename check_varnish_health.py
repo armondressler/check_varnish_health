@@ -27,7 +27,7 @@ try:
     from json import JSONDecodeError
 except ImportError:
     JSONDecodeError = ValueError
-from os.path import join,exists,isdir
+from os.path import join
 import logging
 
 
@@ -75,6 +75,10 @@ class CheckVarnishHealth(nag.Resource):
         self.logger = logging.getLogger('nagiosplugin')
 
     def client_good_request_rate(self):
+        """
+        "The count of parseable client requests seen"
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.client_req"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -83,6 +87,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def client_bad_request_rate(self):
+        """
+        Client requests received, subject to 400,411,413,417 errors
+        :return: change of metric since last execution and auxiliary information
+        """
         required_metrics = ["MAIN.client_req_400", "MAIN.client_req_411", "MAIN.client_req_413", "MAIN.client_req_417"]
         current_value = sum([val for val in self._fetch_varnishstats(required_metrics).values()])
         return {
@@ -92,6 +100,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def cache_hitrate_pct(self):
+        """
+        get cache hitrate as percentage
+        :return: current cache hitrate and auxiliary information
+        """
         required_metrics = ["MAIN.cache_hit", "MAIN.cache_miss"]
         metrics_dict = self._fetch_varnishstats(required_metrics)
         return {
@@ -99,9 +111,14 @@ class CheckVarnishHealth(nag.Resource):
                                           metrics_dict["MAIN.cache_hit"] + metrics_dict["MAIN.cache_miss"]),
             "name": "cache_hitrate_pct",
             "uom": "%",
-            "min": 0}
+            "min": 0,
+            "max": 100}
 
     def cache_hitforpass_rate(self):
+        """
+        rate of objects passed straight to backend due to presence of a "hitforpass" object
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.cache_hitpass"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -110,6 +127,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def cached_objects_expired_rate(self):
+        """
+        rate of objects expired in cache due to ttl
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.n_expired"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -118,6 +139,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def cached_objects_nuked_rate(self):
+        """
+        rate of objects that have been forcefully evicted from storage to make room for a new object.
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.n_lru_nuked"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -126,6 +151,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def threads_failed_rate(self):
+        """
+        rate of failed thread creation
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.threads_failed"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -134,6 +163,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def threads_creation_rate(self):
+        """
+        rate of thread creation
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.threads_created"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -142,6 +175,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def threads_failed_at_limit_rate(self):
+        """
+        rate of failed thread creation limited by thread_pool_max
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.threads_limited"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -150,6 +187,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def session_queue_rate(self):
+        """
+        current length of session queue, limited by thread_queue_limit
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.thread_queue_len"]).values())
         return {
             "value": current_value,
@@ -158,6 +199,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def backend_request_rate(self):
+        """
+        rate of requests made to backend
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.backend_req"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -166,6 +211,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def backend_connection_rate(self):
+        """
+        rate of connections opened to backend
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.backend_conn"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -174,6 +223,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def backend_connection_saturation_rate(self):
+        """
+        rate of failed connections to backend due to saturation
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.backend_busy"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -182,6 +235,10 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def backend_unattempted_connections_rate(self):
+        """
+        rate of unattempted connections to backend due to it being marked as unhealthy by varnish
+        :return: change of metric since last execution and auxiliary information
+        """
         current_value = sum(self._fetch_varnishstats(["MAIN.backend_unhealthy"]).values())
         return {
             "value": self._get_growth_rate(current_value),
@@ -190,6 +247,13 @@ class CheckVarnishHealth(nag.Resource):
             "min": 0}
 
     def _get_growth_rate(self, current_value):
+        """
+        Varnishstat often reports cummulative values for its metrics. As were only interested in relative changes
+        we need to save state between executions of the plugin (done via nagiosplugin.Cookie). The first execution
+        will therefor only ever report 0 and save state.
+        :param current_value: value read from varnishstat from this execution
+        :return: change in value since last execution
+        """
         with nag.Cookie(statefile=self.tmpfile) as cookie:
             historic_value = cookie.get(self.metric)
             if historic_value is not None:
@@ -221,7 +285,7 @@ class CheckVarnishHealth(nag.Resource):
         """
         returns dict with varnish fields (e.g. MGT.child_died) and their corresponding values
         :param varnish_output: string, must be valid json
-        :param fieldlist: list of strings of varnish stat fields
+        :param fieldlist: list of strings of varnish stat fields (e.g. ["MAIN.backend_fail"])
         :return: dict()
         """
         try:
@@ -240,15 +304,28 @@ class CheckVarnishHealth(nag.Resource):
         :return: dict()
         """
         extended_fieldlist = [("-f", field) for field in fieldlist]
-        arglist = [self.varnishlog_utility_path, "-j", "-1"] + [arg for pair in extended_fieldlist for arg in pair]
+        arglist = [self.varnishlog_utility_path, "-j", "-1"]
+        if self.varnish_instance_name is not None:
+            arglist.extend(["-n",self.varnish_instance_name])
+        arglist.extend([arg for pair in extended_fieldlist for arg in pair])
         self.logger.debug("Starting {} with args {}".format(arglist[0], " ".join(arglist[1:])))
         process = Popen(arglist, stdout=PIPE)
         stdout, stderr = process.communicate()
         stdout_string = stdout.decode()
-        exit_status = process.wait(timeout=3)
+        try:
+            exit_status = process.wait(timeout=3)
+        except TimeoutError:
+            self.logger.error("varnishstat ran into timeout, aborting.")
+            raise
         return self._load_varnishstats_json(stdout_string, fieldlist)
 
     def probe(self):
+        """
+        method required by nagiosplugin, used to start gathering metrics
+        in this case a method with the same name as the metric (e.g. backend_request_rate()) gets called
+        :return: result of metric gathering and auxiliary information
+        """
+        self.logger.info("Starting fetch of stats for metric {}".format(self.metric))
         metric_dict = operator.methodcaller(self.metric)(self)
         if self.min:
             metric_dict["min"] = self.min
@@ -332,7 +409,7 @@ def parse_arguments():
                         help='Supported keywords: {}'.format(
                             ", ".join(CheckVarnishHealthContext.fmt_helper.keys())))
     parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help='increase output verbosity (use up to 3 times)')
+                        help='increase output verbosity (use up to 2 times)')
 
     return parser.parse_args()
 
