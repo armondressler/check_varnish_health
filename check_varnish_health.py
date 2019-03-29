@@ -79,11 +79,13 @@ class CheckVarnishHealth(nag.Resource):
         with nag.Cookie(statefile=self.tmpfile) as cookie:
             historic_value = cookie.get("MAIN.client_req")
             if historic_value is not None:
-                metric_value = int(metric_value_dict["MAIN.client_req"]) - cookie.get("MAIN.client_req")
-            else:
+                metric_value = int(metric_value_dict["MAIN.client_req"]) - historic_value
                 cookie["MAIN.client_req"] = metric_value_dict["MAIN.client_req"]
                 cookie.commit()
+            else:
                 metric_value = 0
+                cookie["MAIN.client_req"] = metric_value_dict["MAIN.client_req"]
+                cookie.commit()
         return {
             "value": metric_value,
             "name": "client_good_request_rate",
@@ -207,7 +209,7 @@ def parse_arguments():
     parser.add_argument('-c', '--critical', metavar='RANGE', default='',
                         help='return critical if load is outside RANGE,\
                             RANGE is defined as an number or an interval, e.g. 5:25 or :30  or 95:')
-    parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishstats',
+    parser.add_argument('-u', '--varnishlog-utility-path', action='store', default='/usr/bin/varnishstat',
                         help='path to varnishlog utility')
     parser.add_argument('-n', '--varnish-instance-name', action='store', help='hostname by default')
     parser.add_argument('-t', '--tmpdir', action='store', default='/tmp/check_varnish_health',
