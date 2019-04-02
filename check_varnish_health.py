@@ -9,7 +9,8 @@ try:
     from json import JSONDecodeError
 except ImportError:
     JSONDecodeError = ValueError
-from os.path import join
+from os.path import join, isdir
+from os import makedirs
 import logging
 
 
@@ -50,11 +51,12 @@ class CheckVarnishHealth(nag.Resource):
                  max=None):
         self.metric = metric
         self.varnishstat_utility_path = varnishstat_utility_path
-        self.varnish_instance_name = varnish_instance_name
-        self.tmpfile = join(tmpdir, metric)
+        self.varnish_instance_name = varnish_instance_name if varnish_instance_name else "default"
         self.min = min
         self.max = max
         self.logger = logging.getLogger('nagiosplugin')
+        self.tmpdir = join(tmpdir, self.varnish_instance_name)
+
 
     def client_good_request_rate(self):
         """
@@ -240,6 +242,14 @@ class CheckVarnishHealth(nag.Resource):
             "uom": "c",
             "min": 0}
 
+    def _create_tmp_dir(self):
+        if not isdir(self.tmpdir):
+            try:
+                makedirs(self.tmpdir, mode=750)
+            except PermissionError:
+                self.logger.error("Failed to create tmpdir {}".format(self.tmpdir))
+                raise
+
     def _get_growth_rate(self, current_value):
         """
         Varnishstat often reports cummulative values for its metrics. As were only interested in relative changes
@@ -248,7 +258,9 @@ class CheckVarnishHealth(nag.Resource):
         :param current_value: value read from varnishstat from this execution
         :return: change in value since last execution
         """
-        with nag.Cookie(statefile=self.tmpfile) as cookie:
+        self._create_tmp_dir()
+
+        with nag.Cookie(statefile=self.tmpdir) as cookie:
             historic_value = cookie.get(self.metric)
             if historic_value is not None:
                 metric_value = current_value - historic_value
