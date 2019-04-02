@@ -51,11 +51,11 @@ class CheckVarnishHealth(nag.Resource):
                  max=None):
         self.metric = metric
         self.varnishstat_utility_path = varnishstat_utility_path
-        self.varnish_instance_name = varnish_instance_name if varnish_instance_name else "default"
+        self.varnish_instance_name = varnish_instance_name
         self.min = min
         self.max = max
         self.logger = logging.getLogger('nagiosplugin')
-        self.tmpdir = join(tmpdir, self.varnish_instance_name)
+        self.tmpdir = join(tmpdir, self.varnish_instance_name if self.varnish_instance_name else "default")
 
 
     def client_good_request_rate(self):
@@ -260,7 +260,7 @@ class CheckVarnishHealth(nag.Resource):
         """
         self._create_tmp_dir()
 
-        with nag.Cookie(statefile=self.tmpdir) as cookie:
+        with nag.Cookie(statefile=join(self.tmpdir,self.metric)) as cookie:
             historic_value = cookie.get(self.metric)
             if historic_value is not None:
                 metric_value = current_value - historic_value
