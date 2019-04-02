@@ -16,7 +16,6 @@ import logging
 
 __author__ = "Armon Dressler"
 __license__ = "Apache"
-__version__ = "0.4"
 __email__ = "armon.dressler@gmail.com"
 
 '''
