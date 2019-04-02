@@ -244,7 +244,7 @@ class CheckVarnishHealth(nag.Resource):
     def _create_tmp_dir(self):
         if not isdir(self.tmpdir):
             try:
-                makedirs(self.tmpdir, mode=750)
+                makedirs(self.tmpdir, mode=0o750)
             except PermissionError:
                 self.logger.error("Failed to create tmpdir {}".format(self.tmpdir))
                 raise
